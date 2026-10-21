@@ -2185,6 +2185,17 @@
             document.getElementById('stat-remaining').textContent = total - copiedCount;
         }
 
+        // FIX #4 (T-2): helper nomor urut lintas-view untuk pencarian
+        function getNomorUrutGlobal(item) {
+            let idx = appState.main.indexOf(item);
+            if (idx !== -1) return idx + 1;
+            idx = appState.draft1.indexOf(item);
+            if (idx !== -1) return idx + 1;
+            idx = appState.draft2.indexOf(item);
+            if (idx !== -1) return idx + 1;
+            return 0;
+        }
+
         function getSearchResults() {
             const qNik = appState.searchNikQuery.trim().toLowerCase();
             const qDetail = appState.searchDetailQuery.trim().toLowerCase();
@@ -2192,7 +2203,8 @@
             const all = [...appState.main, ...appState.draft1, ...appState.draft2];
             return all.filter(item => {
                 const nikMatch = qNik ? item.nik.toLowerCase().includes(qNik) : true;
-                const noMatch = qNik ? (appState.main.indexOf(item) + 1).toString() === qNik : true;
+                // FIX #4 (T-2): nomor urut berlaku di view asal item (main/draft1/draft2)
+                const noMatch = qNik ? (getNomorUrutGlobal(item).toString() === qNik) : true;
                 const tempatMatch = qDetail ? (item.tempat || '').toLowerCase().includes(qDetail) : true;
                 const tanggalMatch = qDetail ? (item.tanggal || '').toLowerCase().includes(qDetail) : true;
                 return (nikMatch || noMatch) && (tempatMatch || tanggalMatch);
@@ -2344,6 +2356,8 @@
             const btnMove = document.querySelector(`button[data-index="${index}"][data-action="move"]`);
             const nikInput = document.querySelector(`input[data-index="${index}"][data-field="nik"]`);
             if (!nikInput) return;
+            // FIX #5 (T-3): tombol simpan dinonaktifkan saat view = pencarian
+            const isSearch = (appState.currentView === 'search');
             const currentNik = nikInput.value.trim();
             const currentTempat = document.querySelector(`input[data-index="${index}"][data-field="tempat"]`)?.value.trim() || '';
             const currentTanggal = getTanggalFromFields(index);
@@ -2356,13 +2370,13 @@
                     const originalTempat = currentList[index].tempat || '';
                     const originalTanggal = currentList[index].tanggal || '';
                     const hasChanged = (currentNik !== originalNik || currentTempat !== originalTempat || currentTanggal !== originalTanggal);
-                    if (btnCheck) btnCheck.disabled = !hasChanged;
+                    if (btnCheck) btnCheck.disabled = !hasChanged || isSearch;
                 }
             } else {
                 const all = [...appState.main, ...appState.draft1, ...appState.draft2];
                 const isNikValid = isValidNIK(currentNik) && !all.some(item => item.nik === currentNik);
                 valid = isNikValid;
-                if (btnCheck) btnCheck.disabled = !valid;
+                if (btnCheck) btnCheck.disabled = !valid || isSearch;
             }
             if (btnMove) {
                 if (index >= 0) btnMove.disabled = false;
@@ -2716,6 +2730,8 @@
                     appState.currentView === 'draft1' ? appState.draft1 :
                     appState.currentView === 'draft2' ? appState.draft2 :
                     appState.main;
+                // FIX #3 (T-1): label view untuk tooltip tombol ✓
+                const targetViewLabel = appState.currentView === 'draft1' ? 'Draft 1' : appState.currentView === 'draft2' ? 'Draft 2' : 'Utama';
                 tdNo.textContent = targetListForNumber.length + 1;
                 tr.appendChild(tdNo);
 
@@ -2745,7 +2761,8 @@
                 const btnCheck = document.createElement('button');
                 btnCheck.className = 'btn btn-success btn-xs';
                 btnCheck.textContent = '✓';
-                btnCheck.title = 'Tambah NIK ke utama';
+                // FIX #3 (T-1): tooltip dinamis mengikuti target view aktif
+                btnCheck.title = `Tambah NIK ke ${targetViewLabel}`;
                 btnCheck.disabled = true;
                 btnCheck.dataset.index = index;
                 btnCheck.dataset.action = 'check';
